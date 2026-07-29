@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROJECT BUILDING — PART 1 더샵 전략 기획</title>
+<style>
+  :root{
+    --sky:#2b3242; --sky-deep:#1f2530; --panel:#333b4e; --panel-2:#3b445a;
+    --line:#4a5568; --ink:#e8dfc8; --ink-dim:#a8a390; --cream:#f2e3c2;
+    --amber:#ffd76e; --orange:#f0a848; --brick:#8a5a4a; --green:#58a862;
+    --danger:#e07a5f; --ok:#7fc97f;
+  }
+  html{color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--sky-deep);color:var(--ink);
+    font-family:'Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;line-height:1.65}
+  .mono{font-family:Consolas,Menlo,'Courier New',monospace}
+  .wrap{max-width:880px;margin:0 auto;padding:0 20px 80px}
+  .scene{position:relative;background:var(--sky);border-bottom:4px solid #171c26;overflow:hidden}
+  .scene canvas{display:block;width:100%;image-rendering:pixelated}
+  .scene .title-layer{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;pointer-events:none;
+    background:linear-gradient(transparent 18%,rgba(23,28,38,.62) 40%,rgba(23,28,38,.62) 66%,transparent 86%)}
+  .title-layer canvas{width:min(560px,86%);image-rendering:pixelated;
+    filter:drop-shadow(3px 3px 0 rgba(0,0,0,.45))}
+  .title-layer .sub{margin-top:10px;color:var(--amber);font-size:12px;letter-spacing:.35em;
+    text-transform:uppercase;text-shadow:2px 2px 0 rgba(0,0,0,.5)}
+  .agent-tags{position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:space-around;pointer-events:none}
+  .agent-tag{font-size:10.5px;letter-spacing:.08em;color:var(--cream);background:rgba(23,28,38,.85);
+    border:2px solid var(--line);padding:3px 8px;transition:border-color .3s,color .3s}
+  .agent-tag.active{border-color:var(--amber);color:var(--amber);animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{border-color:var(--orange)}}
+  @media (prefers-reduced-motion:reduce){.agent-tag.active{animation:none}}
+  .roster{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:26px 0 8px}
+  @media(max-width:640px){.roster{grid-template-columns:1fr}}
+  .agent-card{background:var(--panel);border:3px solid var(--line);padding:14px 14px 12px;position:relative}
+  .agent-card.on{border-color:var(--amber)}
+  .agent-card .head{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+  .agent-card canvas{width:44px;height:52px;image-rendering:pixelated;flex:none;background:var(--sky-deep);border:2px solid var(--line)}
+  .agent-card h3{margin:0;font-size:13px;color:var(--cream);letter-spacing:.04em}
+  .agent-card .stat{font-size:10.5px;letter-spacing:.1em}
+  .agent-card .stat.idle{color:var(--ink-dim)}
+  .agent-card .stat.work{color:var(--amber)}
+  .agent-card p{margin:0;font-size:12px;color:var(--ink-dim);line-height:1.55}
+  .step{background:var(--panel);border:3px solid var(--line);margin-top:22px;padding:20px 22px 22px}
+  .step.locked{opacity:.38;pointer-events:none}
+  .step-eyebrow{font-size:10.5px;letter-spacing:.25em;color:var(--orange);margin:0 0 6px}
+  .step h2{margin:0 0 4px;font-size:17px;color:var(--cream);text-wrap:balance}
+  .step .hint{margin:0 0 14px;font-size:12.5px;color:var(--ink-dim)}
+  textarea{width:100%;min-height:96px;resize:vertical;background:var(--sky-deep);color:var(--ink);
+    border:2px solid var(--line);padding:12px 14px;font:inherit;font-size:14px}
+  textarea:focus,button:focus-visible,label:focus-within{outline:3px solid var(--amber);outline-offset:1px}
+  .btn{display:inline-block;margin-top:12px;padding:10px 22px;background:var(--orange);color:#241a0c;
+    border:none;border-bottom:4px solid #a86b22;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+  .btn:active{transform:translateY(2px);border-bottom-width:2px}
+  .btn.ghost{background:var(--panel-2);color:var(--ink);border-bottom-color:#242b3a}
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+  .check-group{display:grid;gap:8px;margin:10px 0 4px}
+  .check-group.two{grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:700px){.check-group.two{grid-template-columns:1fr}}
+  .cg-col h4{margin:0 0 8px;font-size:12.5px;color:var(--amber);letter-spacing:.06em}
+  .cg-col .desc{font-size:11.5px;color:var(--ink-dim);margin:0 0 10px}
+  label.opt{display:flex;gap:10px;align-items:flex-start;background:var(--sky-deep);
+    border:2px solid var(--line);padding:9px 12px;font-size:13px;cursor:pointer}
+  label.opt:hover{border-color:var(--ink-dim)}
+  label.opt input{margin-top:3px;accent-color:var(--orange)}
+  label.opt.picked{border-color:var(--amber)}
+  .verdict{border:3px solid var(--amber);background:var(--panel-2);padding:16px 18px;margin-top:14px}
+  .verdict .big{font-size:18px;color:var(--amber);font-weight:700;margin:0 0 6px}
+  .verdict ul{margin:6px 0 0;padding-left:20px;font-size:13px}
+  .verdict .why{color:var(--ink-dim);font-size:12.5px;margin:2px 0 0}
+  .tagline{display:inline-block;background:rgba(240,168,72,.15);color:var(--amber);
+    font-size:12px;padding:2px 8px;margin-top:8px}
+  .proc-steps{display:grid;gap:6px;margin-top:10px}
+  .proc-steps .ps{display:flex;gap:10px;font-size:12.5px;background:var(--sky-deep);
+    border:2px solid var(--line);padding:8px 12px}
+  .proc-steps .n{color:var(--orange);font-weight:700;flex:none}
+  .note{font-size:11.5px;color:var(--ink-dim);margin-top:8px}
+  .draft-box{background:var(--sky-deep);border:2px solid var(--line);padding:16px 18px;
+    margin-top:12px;max-height:520px;overflow:auto;font-size:13px;white-space:pre-wrap}
+  .draft-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .working-msg{margin-top:14px;color:var(--amber);font-size:13px;display:none}
+  .working-msg.show{display:block}
+  .dots::after{content:'';animation:dots 1.2s steps(4) infinite}
+  @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+  @media (prefers-reduced-motion:reduce){.dots::after{content:'...';animation:none}}
+  .footer{margin-top:40px;font-size:11px;color:var(--ink-dim);text-align:center;letter-spacing:.05em}
+  .footer a{color:var(--ink-dim)}
+</style></head><body>
+
+<div class="scene" aria-label="픽셀 아트 사무실 타운 — 에이전트들이 입주한 더샵 기획 타운">
+  <canvas id="town" width="480" height="150"></canvas>
+  <div class="title-layer">
+    <canvas id="titleCv"></canvas>
+    <div class="sub mono">PART 1 · 더샵 전략 기획</div>
+  </div>
+  <div class="agent-tags mono">
+    <span class="agent-tag" id="tag-okr">OKR COACH</span>
+    <span class="agent-tag" id="tag-nav">PLANNING NAVIGATOR</span>
+    <span class="agent-tag" id="tag-pol">POLICY HELPER</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="roster">
+    <div class="agent-card" id="card-nav">
+      <div class="head"><canvas data-sprite="nav" width="12" height="14"></canvas>
+        <div><h3>기획서 네비게이터</h3><div class="stat mono idle" data-stat>IDLE</div></div></div>
+      <p>과제를 입력하면 검증/접목 트랙을 판정하고, AI가 과제 맞춤 기획서 초안을 작성해요. 지금 이 타운에서 근무 중.</p>
+    </div>
+    <div class="agent-card" id="card-okr">
+      <div class="head"><canvas data-sprite="okr" width="12" height="14"></canvas>
+        <div><h3>OKR 코치</h3><div class="stat mono idle" data-stat>IDLE</div></div></div>
+      <p>KR이 SMART한지, 활동이 아니라 결과인지 검사해요. (입주 준비 중 — PART 2 예정)</p>
+    </div>
+    <div class="agent-card" id="card-pol">
+      <div class="head"><canvas data-sprite="pol" width="12" height="14"></canvas>
+        <div><h3>서비스 정책서 도우미</h3><div class="stat mono idle" data-stat>IDLE</div></div></div>
+      <p>완성된 기획서를 표준 정책서(목적/플로우/예외)로 변환해요. (입주 준비 중 — PART 3 예정)</p>
+    </div>
+  </div>
+
+  <section class="step" id="s1">
+    <p class="step-eyebrow mono">STEP 1 / 과제 입력</p>
+    <h2>무엇을 기획하려고 하나요?</h2>
+    <p class="hint">해결하려는 문제나 만들려는 서비스를 자유롭게 적어주세요. AI가 이 내용을 기반으로 초안을 작성합니다.</p>
+    <textarea id="taskInput" placeholder="예) 더샵플러스 이용 약국 간 의약품 교품을 중개하고, 긴급배송으로 배송까지 제공하는 서비스. 초기 1~2회 무료, 이후 저렴한 유료."></textarea>
+    <button class="btn" id="toStep2">에이전트 출근시키기</button>
+  </section>
+
+  <section class="step locked" id="s2">
+    <p class="step-eyebrow mono">STEP 2 / 트랙 판정</p>
+    <h2>해당하는 조건을 모두 체크하세요</h2>
+    <p class="hint">더샵 전략 기획 프로세스의 판정 기준 그대로입니다. 왼쪽에 하나라도 해당하면 검증 트랙으로 갑니다.</p>
+    <div class="check-group two">
+      <div class="cg-col">
+        <h4>🔍 검증이 필요한가?</h4>
+        <p class="desc">"우리 사업에서도 실제로 작동하는지 확인이 필요하면 검증"</p>
+        <div class="check-group" id="verifyChecks"></div>
+      </div>
+      <div class="cg-col">
+        <h4>🧩 접목이면 충분한가?</h4>
+        <p class="desc">"될지는 검증돼 있고, 잘 맞게 설계하면 되는 과제면 접목"</p>
+        <div class="check-group" id="graftChecks"></div>
+      </div>
+    </div>
+    <button class="btn" id="judgeBtn">트랙 판정 요청</button>
+    <p class="working-msg mono" id="workMsg1"></p>
+    <div id="verdictTrack"></div>
+  </section>
+
+  <section class="step locked" id="s3">
+    <p class="step-eyebrow mono">STEP 3 / 양식 선택</p>
+    <h2>지금 상황과 가장 가까운 것은?</h2>
+    <p class="hint">판정 결과를 반영해 네비게이터가 하나를 미리 골라뒀어요. 다르면 바꿔도 됩니다.</p>
+    <div class="check-group" id="formRadios"></div>
+    <button class="btn" id="draftBtn">AI 초안 생성</button>
+    <p class="working-msg mono" id="workMsg2"></p>
+  </section>
+
+  <section class="step locked" id="s4">
+    <p class="step-eyebrow mono">STEP 4 / 결과</p>
+    <h2 id="resultTitle">초안</h2>
+    <div id="verdictForm"></div>
+    <div class="draft-box mono" id="draftBox" tabindex="0"></div>
+    <div class="draft-actions" style="margin-top:14px">
+      <button class="btn" id="dlBtn">.md 파일로 저장</button>
+      <button class="btn ghost" id="copyBtn">클립보드에 복사</button>
+      <button class="btn ghost" id="resetBtn">새 과제 시작</button>
+    </div>
+    <p class="note">⚠️ AI가 작성한 초안입니다. 수치·기한·법규 관련 내용은 반드시 실데이터와 담당 부서 확인을 거쳐 사용하세요.</p>
+  </section>
+
+  <p class="footer">기준 문서: 더샵 전략 기획 프로세스 · 더샵 기획 검증 4단계 · 성공모델 접목 4단계<br><br>
+  <span class="mono">© 2026 EZMEDICOM | For Internal Training Use Only</span></p>
+</div>
+
+<script>
+const VERIFY = [
+  '고객이 기존과 다른 새로운 행동을 해야 한다',
+  '우리 사업의 물류·운영·정산·수익 구조가 바뀐다',
+  '시장에 사례는 있어도, 우리 구조에서 실제로 작동할지 확신하기 어렵다',
+  '고객이 실제로 쓸지, 돈을 낼지, 반복 사용할지 확인이 필요하다',
+  '완전히 새로운 개념이거나, 기존 성공원리가 그대로 적용된다고 보기 어렵다'
+];
+const GRAFT = [
+  '이미 시장·업계에서 효과가 검증된 성공모델이다',
+  '고객 행동 원리는 이미 충분히 검증되어 있다',
+  '핵심은 "될지"가 아니라 "우리 사업에 어떻게 맞게 설계할지"다',
+  '큰 구조 변화 없이 조건·UX·정책·운영 디테일만 정교하게 설계하면 된다'
+];
+const VERIFY_STEPS = [
+  ['1단계 가설 수립','한 문장 문제 정의 + 수치 기반 가설 + 6-pager/PR·FAQ. 내부 30~50명 설명, 80% 이상이 대상/편익/성공기준을 설명할 수 있으면 통과'],
+  ['2단계 전문가 자문 튜닝','내부(개발·물류·운영·CS·정산/법규) + 사외(자문 약사단·VIP·업계 전문가). 치명적 리스크 해소 + 핵심 고객 70% 이상 "써볼 의향"이면 통과'],
+  ['3단계 PM 직접 검증','프리토타입 / PM 직접 판매 / MVP / 파일럿 중 선택. 문서가 아니라 고객의 실제 행동으로만 검증'],
+  ['4단계 PM Fit 검증','SOP·매뉴얼·CS 스크립트로 전환, 대시보드 구축, 1개월 Field Validation. PM 없이 80% 이상 재현되면 표준 서비스']
+];
+const GRAFT_STEPS = [
+  ['1단계 성공모델 이해','사례 3개 이상 수집, 기능이 아닌 원리 중심 해체. 한 문장으로 설명 가능하면 통과'],
+  ['2단계 접목 구조 설계','그대로 적용 / 수정 필요 / 적용 어려움 3분류, 실패 포인트 사전 정의'],
+  ['3단계 실행 설계','정책·UX·운영·KPI 설계. 인지→선택→구매→반복 행동 흐름 기준, End-to-End 완성'],
+  ['4단계 적용 및 정교화','Soft rollout + A/B 테스트. 전환율·객단가·반복률 관리, 문제 시 구조가 아닌 디테일 수정']
+];
+const STRATEGY_GUIDE = [
+  '### 전략 — 목표 달성을 위해 (다르게) 할 일',
+  '<!-- 무엇을/왜/어떻게 구조, 2~4개 선언. MECE: 독립적인 축(고객 가치/원가·운영/수익화 등),',
+  '     STEP 1-2-3 시간 순서 금지. 자가 점검: 순서를 바꿔도 각 전략이 성립하는가? -->',
+  '- [축 1] :',
+  '- [축 2] :',
+  '- [축 3] :',
+  '',
+  '### 할 일 — 세부적으로 무엇을, 언제까지',
+  '| 할 일 | 기한 |',
+  '|---|---|',
+  '|  |  |'
+].join('\n');
+const FORMS = {
+  '문제도출형':{when:'문제가 있는 것 같은데, 정확히 무엇이 문제인지 모르겠다',q:'진짜 해결해야 할 문제는 무엇인가?',
+    secs:['## 문제\n<!-- 실제 문제와 판단 근거(데이터·VOC·지표) -->','## 높은 목표\n','## GAP\n','## 해결 방법\n','## 실행과 결과\n<!-- Before → After 수치로 -->','## 복기\n']},
+  '디자인띵킹형':{when:'고객/시장/내부 상황을 깊게 분석해야 하는 큰 기획이다',q:'고객/시장/내부 상황을 보면 어떤 전략이 필요한가?',
+    secs:['## 배경 및 복기\n','## 목적\n<!-- 왜 하는가 -->','## 학습\n','## 목표\n<!-- 수치·기한 필수 -->','## 전략 및 할 일\n'+STRATEGY_GUIDE,'## 한 일\n','## 결과\n<!-- Before → After -->','## 복기\n']},
+  '접목형':{when:'이미 성공한 사례를 우리 서비스에 맞게 적용하려 한다',q:'이미 검증된 방식을 우리 사업에 어떻게 적용할 것인가?',
+    secs:['## 배경\n','## 목적\n','## 목표\n','## 학습\n<!-- 레퍼런스 3개+ / 성공 원리 -->','## 실행 계획\n'+STRATEGY_GUIDE,'## 한 일\n','## 결과\n','## 복기\n']},
+  '제휴형':{when:'외부 업체와 제휴하거나 협상해야 한다',q:'이 협력이 서로에게 어떤 득을 만드는가?',
+    secs:['## 목적\n','## 비즈니스 전략\n<!-- 파트너/약국·병원/회사의 득 구조 -->','## 목표\n','## 제안서\n','## 협상 진행 이력\n','## 한 일\n','## 성과 관리\n','## 후속 관리 계획\n','## 리스크 & 내부 공유 사항\n']},
+  '이슈해결형':{when:'장애·CS 급증·SLA 미달처럼 이미 발생한 문제를 해결해야 한다',q:'무슨 일이 왜 발생했고, 어떻게 재발을 막을 것인가?',
+    secs:['## 문제 정의\n<!-- 숫자로 -->','## 현황 분석\n','## 원인 분석\n<!-- Process/People/System/Data/External -->','## 해결 과제\n','## 결과 및 복기\n']},
+  '심플진행형':{when:'작고 빠른 실행 과제를 간단히 기록하면 된다',q:'무엇을 해결했고, 결과는 어땠는가?',
+    secs:['## 해결해야 할 과제\n','## 진행한 방식\n','## 진행 과정\n','## 결과\n','## 복기\n']},
+  '의사결정형':{when:'여러 안 중 무엇을 선택할지 결정해야 한다',q:'어떤 기준으로 무엇을 선택할 것인가?',
+    secs:['## 결정해야 할 것\n','## 배경\n','## 선택지\n','## 판단 기준\n','## 비교 검토\n','## 결론\n']}
+};
+
+(function(){
+  const src=document.createElement('canvas'), t='PROJECT BUILDING';
+  const sctx=src.getContext('2d'); sctx.font='bold 10px monospace';
+  src.width=Math.ceil(sctx.measureText(t).width)+2; src.height=13;
+  const c2=src.getContext('2d'); c2.font='bold 10px monospace'; c2.fillStyle='#fff';
+  c2.textBaseline='top'; c2.fillText(t,1,1);
+  const d=c2.getImageData(0,0,src.width,src.height), p=d.data;
+  for(let i=0;i<p.length;i+=4){
+    if(p[i+3]>110){p[i]=242;p[i+1]=227;p[i+2]=194;p[i+3]=255;}else p[i+3]=0;
+  }
+  c2.putImageData(d,0,0);
+  const dst=document.getElementById('titleCv'), S=6;
+  dst.width=src.width*S; dst.height=src.height*S;
+  const dc=dst.getContext('2d'); dc.imageSmoothingEnabled=false;
+  dc.drawImage(src,0,0,dst.width,dst.height);
+})();
+
+const town=document.getElementById('town'), tc=town.getContext('2d');
+const BUILD=[
+  [4,52,92,'#4a5568',0],[60,66,118,'#8a5a4a',1],[130,48,74,'#5b6779',0],
+  [182,72,126,'#6b7787',1],[258,54,96,'#59606f',0],[316,70,110,'#7a4f42',1],
+  [390,44,84,'#4a5568',0],[438,38,66,'#5b6779',0]
+];
+let litWindows={}, working=false;
+function drawTown(){
+  tc.fillStyle='#2b3242'; tc.fillRect(0,0,480,150);
+  tc.fillStyle='#242b38'; tc.fillRect(0,140,480,10);
+  tc.fillStyle='#3a4356'; for(let x=6;x<480;x+=24)tc.fillRect(x,144,10,2);
+  BUILD.forEach(function(b,bi){
+    const x=b[0],w=b[1],h=b[2],y=140-h;
+    tc.fillStyle=b[3]; tc.fillRect(x,y,w,h);
+    tc.fillStyle='rgba(0,0,0,.25)'; tc.fillRect(x+w-5,y,5,h);
+    tc.fillStyle='#39404f'; tc.fillRect(x-2,y-4,w+4,4);
+    if(b[4]){ tc.fillStyle='#8a93a5'; tc.fillRect(x+w/2-1,y-14,2,10);
+      tc.fillStyle=working?'#ffd76e':'#e07a5f'; tc.fillRect(x+w/2-2,y-16,4,3); }
+    for(let wy=y+7;wy<136;wy+=11){ for(let wx=x+5;wx<x+w-8;wx+=10){
+      const k=bi+'-'+wx+'-'+wy;
+      if(litWindows[k]===undefined) litWindows[k]=Math.random()<0.42;
+      tc.fillStyle=litWindows[k]?(Math.random()<.06&&working?'#fff0b8':'#ffd76e'):'#232a37';
+      tc.fillRect(wx,wy,6,6);
+    }}
+  });
+  [148,278,372].forEach(function(x){
+    tc.fillStyle='#6b4a35'; tc.fillRect(x+3,130,3,8);
+    tc.fillStyle='#58a862'; tc.fillRect(x,122,9,9); tc.fillRect(x+2,119,5,4);
+  });
+}
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+drawTown();
+setInterval(function(){
+  const keys=Object.keys(litWindows); if(!keys.length)return;
+  const n=working?14:(reduced?0:2);
+  for(let i=0;i<n;i++){const k=keys[Math.floor(Math.random()*keys.length)];litWindows[k]=!litWindows[k];}
+  if(n)drawTown();
+}, 600);
+
+const SPRITES={nav:'#f0a848',okr:'#7fb2e0',pol:'#8fce8f'};
+const spriteFrames={};
+function drawSprite(cv,color,frame){
+  const c=cv.getContext('2d'); c.clearRect(0,0,12,14);
+  c.fillStyle='#e8c9a0'; c.fillRect(4,1,4,4);
+  c.fillStyle='#3a3a3a'; c.fillRect(4,1,4,1);
+  c.fillStyle=color; c.fillRect(3,5,6,4);
+  c.fillStyle='#e8c9a0';
+  if(frame){c.fillRect(2,5,1,2);c.fillRect(9,5,1,2);}
+  else{c.fillRect(2,7,1,2);c.fillRect(9,7,1,2);}
+  c.fillStyle='#5b4632'; c.fillRect(1,9,10,2);
+  c.fillStyle='#cfd8e8'; c.fillRect(8,7,3,2);
+  c.fillStyle='#39404f'; c.fillRect(3,11,2,3); c.fillRect(7,11,2,3);
+}
+document.querySelectorAll('[data-sprite]').forEach(function(cv){
+  const key=cv.dataset.sprite; spriteFrames[key]={cv:cv,f:0};
+  drawSprite(cv,SPRITES[key],0);
+});
+setInterval(function(){
+  if(!working||reduced)return;
+  const s=spriteFrames.nav; s.f=1-s.f; drawSprite(s.cv,SPRITES.nav,s.f);
+},350);
+
+function setWorking(on){
+  working=on;
+  document.getElementById('tag-nav').classList.toggle('active',on);
+  document.getElementById('card-nav').classList.toggle('on',on);
+  const st=document.querySelector('#card-nav [data-stat]');
+  st.textContent=on?'WORKING':'IDLE'; st.className='stat mono '+(on?'work':'idle');
+  if(!on)drawSprite(spriteFrames.nav.cv,SPRITES.nav,0);
+  drawTown();
+}
+
+const $=function(id){return document.getElementById(id)};
+let task='', track=null, checkedReasons=[];
+
+function mkChecks(el,list,name){
+  el.innerHTML=list.map(function(t,i){
+    return '<label class="opt"><input type="checkbox" name="'+name+'" value="'+i+'"><span>'+t+'</span></label>';
+  }).join('');
+  el.addEventListener('change',function(e){
+    e.target.closest('label').classList.toggle('picked',e.target.checked);
+  });
+}
+mkChecks($('verifyChecks'),VERIFY,'v');
+mkChecks($('graftChecks'),GRAFT,'g');
+
+$('toStep2').addEventListener('click',function(){
+  task=$('taskInput').value.trim();
+  if(!task){$('taskInput').focus();$('taskInput').placeholder='먼저 기획하려는 것을 적어주세요!';return;}
+  unlock('s2'); $('s2').scrollIntoView({behavior:reduced?'auto':'smooth'});
+});
+
+const WORK_LINES=['조건 대조 중','프로세스 문서 넘겨보는 중','판정 근거 정리 중'];
+function work(msgEl,done){
+  setWorking(true); let i=0;
+  msgEl.classList.add('show');
+  msgEl.innerHTML='🏢 네비게이터 '+WORK_LINES[0]+'<span class="dots"></span>';
+  const iv=setInterval(function(){
+    i++; if(i<WORK_LINES.length){msgEl.innerHTML='🏢 네비게이터 '+WORK_LINES[i]+'<span class="dots"></span>';}
+    else{clearInterval(iv);msgEl.classList.remove('show');setWorking(false);done();}
+  }, reduced?150:700);
+}
+
+$('judgeBtn').addEventListener('click',function(){
+  const v=[].slice.call(document.querySelectorAll('input[name=v]:checked')).map(function(c){return VERIFY[+c.value]});
+  const g=[].slice.call(document.querySelectorAll('input[name=g]:checked')).map(function(c){return GRAFT[+c.value]});
+  work($('workMsg1'),function(){
+    const box=$('verdictTrack');
+    if(v.length){ track='검증'; checkedReasons=v; }
+    else if(g.length>=2){ track='접목'; checkedReasons=g; }
+    else { track=null;
+      box.innerHTML='<div class="verdict"><p class="big">판정 보류 🤔</p><p class="why">검증 조건에 하나도 해당하지 않고 접목 조건도 2개 미만이에요. 조건을 다시 읽어보거나, 애매하면 그대로 AI 초안 생성으로 넘어가도 됩니다(AI가 함께 판단해줘요).</p></div>';
+      buildFormRadios(); unlock('s3');
+      return; }
+    const steps=(track==='검증'?VERIFY_STEPS:GRAFT_STEPS)
+      .map(function(s){return '<div class="ps"><span class="n mono">'+s[0]+'</span><span>'+s[1]+'</span></div>'}).join('');
+    box.innerHTML='<div class="verdict"><p class="big">'+(track==='검증'?'🔍 검증 4단계':'🧩 성공모델 접목 4단계')+' 트랙</p>'
+      +'<p class="why">근거 — 체크한 조건:</p><ul>'+checkedReasons.map(function(r){return '<li>'+r+'</li>'}).join('')+'</ul>'
+      +'<span class="tagline">'+(track==='검증'?'"우리 사업에서도 실제로 작동하는지 확인이 필요하면 검증"':'"될지는 검증돼 있고, 잘 맞게 설계하면 되는 과제라면 접목"')+'</span>'
+      +'<div class="proc-steps">'+steps+'</div>'
+      +'<p class="note">※ 위 4단계는 일을 실행하는 방식입니다. 기획서의 "전략"에는 이 단계를 나열하지 마세요 — 전략은 MECE한 독립 축으로 작성됩니다.</p></div>';
+    buildFormRadios();
+    unlock('s3');
+    box.scrollIntoView({behavior:reduced?'auto':'smooth',block:'nearest'});
+  });
+});
+
+function buildFormRadios(){
+  const rec = track==='접목' ? '접목형' : '디자인띵킹형';
+  const el=$('formRadios');
+  el.innerHTML=Object.keys(FORMS).map(function(name){
+    const f=FORMS[name], on=name===rec;
+    return '<label class="opt'+(on?' picked':'')+'"><input type="radio" name="form" value="'+name+'"'+(on?' checked':'')+'>'
+      +'<span><b>'+name+'</b>'+(on?' <span class="mono" style="color:var(--amber);font-size:10px">◀ 추천</span>':'')
+      +'<br><span style="color:var(--ink-dim);font-size:12px">'+f.when+' — “'+f.q+'”</span></span></label>';
+  }).join('');
+  el.addEventListener('change',function(){
+    el.querySelectorAll('label').forEach(function(l){l.classList.toggle('picked',l.querySelector('input').checked)});
+  });
+}
+
+function localSkeleton(name){
+  const f=FORMS[name];
+  return ['# ['+name+'] 기획서 초안','','> **과제**: '+task,'> **트랙**: '+(track||'미판정')+(track?' 4단계':''),
+    '> **판정 근거**: '+(checkedReasons.length?checkedReasons.map(function(r){return '· '+r}).join(' '):'없음'),'',f.secs.join('\n\n'),'',
+    '---','_PROJECT BUILDING · 규칙 기반 기본 템플릿_'].join('\n');
+}
+
+let draftMd='';
+$('draftBtn').addEventListener('click',async function(){
+  const sel=document.querySelector('input[name=form]:checked'); if(!sel)return;
+  const name=sel.value, btn=this;
+  btn.disabled=true; setWorking(true);
+  const msg=$('workMsg2'); msg.classList.add('show');
+  msg.innerHTML='🏢 AI 네비게이터가 초안을 작성 중입니다 — 보통 30초~2분 걸려요<span class="dots"></span>';
+  let md='', head='';
+  try{
+    const API='https://dvaxpqmnlqawyzvlggfd.supabase.co/functions/v1/project-building/analyze';
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({task:task,track:track,reasons:checkedReasons,form:name})});
+    const j=await r.json();
+    if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
+    md=j.markdown;
+    head='<div class="verdict"><p class="big">📋 '+name+' · AI 생성 초안</p><p class="why">과제 내용을 반영해 AI가 작성했습니다. 수치·기한·법규 내용은 실데이터로 검증 후 사용하세요.</p></div>';
+  }catch(e){
+    md=localSkeleton(name);
+    head='<div class="verdict"><p class="big">📋 '+name+' (기본 템플릿)</p><p class="why">AI 호출에 실패해 규칙 기반 골격을 대신 제공합니다 — '+e.message+'</p></div>';
+  }
+  msg.classList.remove('show'); setWorking(false); btn.disabled=false;
+  draftMd=md;
+  $('resultTitle').textContent='['+name+'] 초안';
+  $('verdictForm').innerHTML=head;
+  $('draftBox').textContent=md;
+  unlock('s4'); $('s4').scrollIntoView({behavior:reduced?'auto':'smooth'});
+});
+
+function unlock(id){$(id).classList.remove('locked')}
+
+$('copyBtn').addEventListener('click',function(){
+  navigator.clipboard.writeText(draftMd).then(function(){
+    $('copyBtn').textContent='복사 완료!'; setTimeout(function(){$('copyBtn').textContent='클립보드에 복사'},1600);
+  });
+});
+$('dlBtn').addEventListener('click',function(){
+  const fn='기획서초안_'+new Date().toISOString().slice(0,10)+'.md';
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([draftMd],{type:'text/markdown'}));
+  a.download=fn; a.click(); URL.revokeObjectURL(a.href);
+});
+$('resetBtn').addEventListener('click',function(){location.reload()});
+</script>
+</body></html>
